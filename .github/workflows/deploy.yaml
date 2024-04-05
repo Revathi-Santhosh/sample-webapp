@@ -50,10 +50,10 @@ jobs:
 
     - name: Build Docker Image
       working-directory: rabbitmq
-      run: docker build -t ${{DOCKER_REPO}}/mq_stomp_server:${{DOCKER_REPO}}/java_app:${{ steps.mq.outputs.version }} .
+      run: docker build -t $DOCKER_REPO/mq_stomp_server:$DOCKER_REPO/java_app:${{ steps.mq.outputs.version }} .
 
     - name: Publish Docker Image
-      run: docker push  ${{DOCKER_REPO}}/mq_stomp_server:${{ steps.mq.outputs.version }}
+      run: docker push  $DOCKER_REPO/mq_stomp_server:${{ steps.mq.outputs.version }}
 
   java-build:
     runs-on: ubuntu-latest
@@ -74,11 +74,11 @@ jobs:
 
     - name: Build Docker Image
       working-directory: java-app
-      run: docker build  --build-arg SONAR_URL=${{SONAR_URL}}  --build-arg SONAR_TOKEN=${{secrets.SONAR_TOKEN}} -t ${{DOCKER_REPO}}/java_app:${{ steps.java-package.outputs.version }} .
+      run: docker build  --build-arg SONAR_URL=${{SONAR_URL}}  --build-arg SONAR_TOKEN=${{secrets.SONAR_TOKEN}} -t $DOCKER_REPO/java_app:${{ steps.java-package.outputs.version }} .
 
     - name: Publish Docker Image
       working-directory: java-app
-      run: docker push  ${{DOCKER_REPO}}/java_app:${{ steps.java-package.outputs.version }}
+      run: docker push  $DOCKER_REPO/java_app:${{ steps.java-package.outputs.version }}
 
   python-build:
     runs-on: ubuntu-latest
@@ -99,11 +99,11 @@ jobs:
 
     - name: Build python Docker Image
       working-directory: python_app
-      run: docker build   -t ${{DOCKER_REPO}}/python_app:${{ steps.pythonpacakge.outputs.version }} .
+      run: docker build   -t $DOCKER_REPO/python_app:${{ steps.pythonpacakge.outputs.version }} .
 
     - name: Publish Docker Image
       working-directory: python-app
-      run: docker push  ${{DOCKER_REPO}}/python_app:${{ steps.pythonpacakge.outputs.version }} .
+      run: docker push  $DOCKER_REPO/python_app:${{ steps.pythonpacakge.outputs.version }} .
 
   update-versions:
     runs-on: ubuntu-latest
