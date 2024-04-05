@@ -1,6 +1,9 @@
+
 networks:
-  db: null
-  mq: null
+  mq:
+    external: true
+  db:
+    external: true
 services:
   db:
     environment:
