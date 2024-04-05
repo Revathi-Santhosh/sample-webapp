@@ -1,0 +1,139 @@
+name: Run ci checks
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  ci-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: setup-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: cache-pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles('.pre-commit-config.yaml') }}
+
+      - name: install-pre-commit
+        run: pip3 install pre-commit
+
+      - name: run-pre-commit
+        shell: bash
+        run: |
+          pre-commit run  --all-files
+
+  mq-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build Docker Image
+      working-directory: rabbitmq
+      run: docker build -t mq_stomp_server:${{ github.head_ref }}.${{ github.sha }} .
+
+    - name: Publish Docker Image
+      run: docker push  mq_stomp_server:${{ github.head_ref }}.${{ github.sha }} .
+
+
+  java-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build Docker Image
+      working-directory: java-app
+      run: docker build  --build-arg SONAR_URL=${{SONAR_URL}}  --build-arg SONAR_TOKEN=${{secrets.SONAR_TOKEN}} -t ${DOCKER_REPO}/java-app:${{ github.head_ref }}.${{ github.sha }} .
+
+    - name: Publish Docker Image
+      working-directory: java-app
+      run: docker push  ${DOCKER_REPO}/java-app:${{ github.head_ref }}.${{ github.sha }}
+
+  python-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Build python Docker Image
+      working-directory: python_app
+      run: docker build   -t python_app:${{ github.head_ref }}.${{ github.sha }} .
+
+    - name: Publish Docker Image
+      working-directory: python-app
+      run: docker push  -java-app:${{ github.head_ref }}.${{ github.sha }} .
+
+  update-versions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Read python version
+        id: pythonpacakge
+        uses:  zoexx/github-action-json-file-properties@release
+        with:
+          path: python-app/version.json
+      - name: Read java app version
+        id: java-package
+        uses:  zoexx/github-action-json-file-properties@release
+        with:
+          path: java-app/version.json
+      - name: Read mq version
+        id: mq
+        uses:  zoexx/github-action-json-file-properties@release
+        with:
+          path: rabbitmq/version.json
+
+      - name: setup-python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.11
+
+      - name: update versions
+        run: |
+          pip3 install PyYAML
+          python update_tags.py  -p  "${{ steps.pythonpacakge.outputs.version }}"  -j "${{ steps.java-package.outputs.version }}" -m "${{ steps.mq.outputs.version }}"
+      - name: push to repo
+        run: |
+          git add docker-compose.yaml
+          git commit -am "updated the docker compoise with latst tags [skip ci]"
+          git push origin main
+
+  deploy:
+    runs-on: docker-server
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name:  run docker compose
+        run:
+          docker-compose pull
+          docker-compose up --force-recreate --build -d

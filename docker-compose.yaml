@@ -1,0 +1,44 @@
+networks:
+  db: null
+  mq: null
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: example
+    image: postgres
+    networks:
+    - db
+    shm_size: 128mb
+    volumes:
+    - target: /dev/shm
+      tmpfs:
+        size: 134217728
+      type: tmpfs
+  javaapp:
+    depends_on:
+    - rabbitmq
+    - db
+    image: java_app:2.0.0
+    networks:
+    - mq
+    - db
+    restart: always
+  pythonapp:
+    depends_on:
+    - rabbitmq
+    environment:
+    - STOMP_HOST=db
+    - STOMP_PORT=wordpress
+    image: python_app:1.0.0
+    networks:
+    - mq
+    ports:
+    - 8000:8000
+  rabbitmq:
+    image: mq_stomp_server:5.0.0
+    networks:
+    - mq
+    ports:
+    - 15672:15672
+    - 5672:5672
+    - 61613:61613
